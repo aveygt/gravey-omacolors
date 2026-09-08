@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "gravey.omacolors",
+  "name": "Omacolors",
+  "version": "1.0.0",
+  "author": "Grant Avey",
+  "license": "MIT",
+  "description": "Color wheel and editable palette on the Omarchy bar. Copy HEX, RGB, HSL, or HSV.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Color picker",
+    "description": "Wheel, brightness slider, palette, and copyable color formats",
+    "category": "Tools",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

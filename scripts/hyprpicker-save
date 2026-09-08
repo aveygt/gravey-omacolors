@@ -1,0 +1,69 @@
+#!/bin/bash
+# Run hyprpicker, copy the hex, and save it into gravey.omacolors history.
+
+set -euo pipefail
+
+if pgrep -x hyprpicker >/dev/null; then
+  pkill hyprpicker || true
+  exit 0
+fi
+
+raw=$(hyprpicker -a -f hex -b -q || true)
+if [[ -z ${raw//[[:space:]]/} ]]; then
+  raw=$(wl-paste -n 2>/dev/null || true)
+fi
+
+hex=$(python3 - "$raw" <<'PY'
+import re, sys
+text = sys.argv[1] if len(sys.argv) > 1 else ""
+text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+match = re.search(r"#?[0-9A-Fa-f]{6}", text) or re.search(r"#?[0-9A-Fa-f]{3}\b", text)
+if not match:
+    sys.exit(1)
+value = match.group(0)
+if not value.startswith("#"):
+    value = "#" + value
+if len(value) == 4:
+    value = "#" + "".join(ch * 2 for ch in value[1:])
+print(value.upper())
+PY
+) || exit 0
+
+if omarchy-shell gravey.omacolors saveHex "$hex" >/dev/null 2>&1; then
+  exit 0
+fi
+
+python3 - "$hex" <<'PY'
+import json, os, sys
+
+hex_value = sys.argv[1]
+path = os.path.expanduser("~/.local/state/omarchy/omacolors-palette.json")
+os.makedirs(os.path.dirname(path), exist_ok=True)
+size = 8
+history = [""] * size
+current = hex_value
+try:
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    if isinstance(data, dict):
+        raw = data.get("history") or data.get("colors") or []
+        if isinstance(raw, list):
+            next_history = []
+            for item in raw:
+                value = str(item).strip().upper()
+                if value.startswith("#") and len(value) == 7:
+                    next_history.append(value)
+            history = (next_history + [""] * size)[:size]
+except (OSError, json.JSONDecodeError):
+    pass
+
+if hex_value not in history:
+    if "" in history:
+        history[history.index("")] = hex_value
+    else:
+        history = [hex_value] + history[:-1]
+
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump({"current": current, "history": history}, handle, indent=2)
+    handle.write("\n")
+PY
